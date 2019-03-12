@@ -1,62 +1,58 @@
 import "reflect-metadata";
 import { ApolloServer } from "apollo-server-express";
 import Express from "express";
-import { buildSchema, formatArgumentValidationError } from "type-graphql";
+import { formatArgumentValidationError } from "type-graphql";
 import { createConnection } from "typeorm";
 import session from "express-session";
 import connectRedis from "connect-redis";
 import cors from "cors";
 import { redis } from "./redis";
+import { createSchema } from "./utils/createSchema";
 
 const main = async () => {
-	await createConnection();
+  await createConnection();
 
-	const schema = await buildSchema({
-		resolvers: [__dirname + "/modules/**/*.ts"],
-		authChecker: ({ context: { req } }) => {
-			return !!req.session.userId;
-		}
-	});
+  const schema = await createSchema();
 
-	const apolloServer = new ApolloServer({
-		schema,
-		formatError: formatArgumentValidationError,
-		context: ({ req, res }: any) => ({ req, res })
-	});
+  const apolloServer = new ApolloServer({
+    schema,
+    formatError: formatArgumentValidationError,
+    context: ({ req, res }: any) => ({ req, res })
+  });
 
-	const app = Express();
+  const app = Express();
 
-	const RedisStore = connectRedis(session);
+  const RedisStore = connectRedis(session);
 
-	app.use(
-		cors({
-			credentials: true,
-			origin: "http://localhost:3000"
-		})
-	);
+  app.use(
+    cors({
+      credentials: true,
+      origin: "http://localhost:3000"
+    })
+  );
 
-	app.use(
-		session({
-			store: new RedisStore({
-				client: redis as any
-			}),
-			name: "qid",
-			secret: "aslkdfjoiq12312",
-			resave: false,
-			saveUninitialized: false,
-			cookie: {
-				httpOnly: true,
-				secure: false,
-				maxAge: 1000 * 60 * 60 * 24 * 7 * 365 // 7 years
-			}
-		})
-	);
+  app.use(
+    session({
+      store: new RedisStore({
+        client: redis as any
+      }),
+      name: "qid",
+      secret: "aslkdfjoiq12312",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: false,
+        maxAge: 1000 * 60 * 60 * 24 * 7 * 365 // 7 years
+      }
+    })
+  );
 
-	apolloServer.applyMiddleware({ app });
+  apolloServer.applyMiddleware({ app });
 
-	app.listen(4000, () => {
-		console.log("server started on http://localhost:4000/graphql");
-	});
+  app.listen(4000, () => {
+    console.log("server started on http://localhost:4000/graphql");
+  });
 };
 
 main();
